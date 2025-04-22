@@ -1,7 +1,8 @@
 from rest_framework import viewsets, permissions
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from rest_framework import status
 from django.contrib.auth.models import User
 from .models import (
     Location, Machine_Type, Part_Type, Type_of_Work, Work_Status,
@@ -61,6 +62,27 @@ class PartViewSet(viewsets.ModelViewSet):
     serializer_class = PartSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def check_workorder_access(request, pk):
+    workorder = get_object_or_404(workorders, pk=pk)
+    
+    # Implement your access logic here (same as in WorkOrderViewSet.get_queryset())
+    if request.user.profile.is_manager:
+        return Response({'status': 'ok'})
+    
+    if request.user.profile.is_utilities:
+        user_dept = request.user.profile.department.department
+        dept_mapping = {'Electrical': 'Electrical', 'Mechanical': 'Mechanical'}
+        if user_dept in dept_mapping and workorder.department == dept_mapping[user_dept]:
+            return Response({'status': 'ok'})
+    
+    if request.user.profile.is_production:
+        if workorder.initiated_by == request.user:
+            return Response({'status': 'ok'})
+    
+    return Response({'status': 'unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+
 class WorkOrderViewSet(viewsets.ModelViewSet):
     queryset = workorders.objects.all().order_by('-initiation_date')
     permission_classes = [permissions.IsAuthenticated]
@@ -99,8 +121,7 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         elif user.profile.is_production:
             # Production can see their own created workorders and completed ones they need to close
             return queryset.filter(
-                Q(initiated_by=user) | 
-                Q(work_status__work_status='Completed')
+                Q(initiated_by=user)
             )
         
         return queryset.none()
