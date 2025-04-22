@@ -35,9 +35,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
+    path('api-token-auth/', account_views.CustomAuthToken.as_view(), name='api_token_auth'),
     
     # Add custom endpoints for workflow actions
+    path('api/workorders/<int:pk>/check-access/', workorder_views.check_workorder_access, name='workorder-check-access'),
     path('api/workorders/<int:pk>/accept/', workorder_views.WorkOrderViewSet.as_view({'post': 'accept'}), name='workorder-accept'),
     path('api/workorders/<int:pk>/reject/', workorder_views.WorkOrderViewSet.as_view({'post': 'reject'}), name='workorder-reject'),
     path('api/workorders/<int:pk>/complete/', workorder_views.WorkOrderViewSet.as_view({'post': 'complete'}), name='workorder-complete'),
