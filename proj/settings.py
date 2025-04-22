@@ -60,7 +60,7 @@ WSGI_APPLICATION = 'proj.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'backup3',
+        'NAME': 'backup11',
         'USER': 'alianza',
         'PASSWORD': 'alianza165',
         'HOST': 'localhost',
