@@ -12,7 +12,7 @@ from .serializers import (
     LocationSerializer, MachineTypeSerializer, PartTypeSerializer,
     TypeOfWorkSerializer, WorkStatusSerializer, PendingSerializer,
     ClosedSerializer, EquipmentSerializer, PartSerializer, WorkOrderSerializer, 
-    WorkOrderHistorySerializer, WorkOrderCreateSerializer, WorkOrderUpdateSerializer
+    WorkOrderHistorySerializer, WorkOrderCreateSerializer, WorkOrderSerializer,
 )
 from django.db.models import Q
 from django.utils import timezone
@@ -90,9 +90,7 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'create':
             return WorkOrderCreateSerializer
-        elif self.action in ['update', 'partial_update']:
-            return WorkOrderUpdateSerializer
-        return WorkOrderSerializer
+        return WorkOrderSerializer  # Use main serializer for all other actions
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -119,42 +117,43 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             return queryset.none()
         
         elif user.profile.is_production:
-            # Production can see their own created workorders and completed ones they need to close
-            return queryset.filter(
-                Q(initiated_by=user)
-            )
+            return queryset.filter(Q(initiated_by=user))
         
         return queryset.none()
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
-        print(request)
         workorder = self.get_object()
         user = request.user
         
-        # Verify utilities user
         if not hasattr(user, 'profile') or not user.profile.is_utilities:
             return Response({"error": "Only utilities users can accept workorders"}, status=403)
             
-        # Verify workorder is in Pending state
         if workorder.work_status.work_status != 'Pending':
             return Response({"error": "Only pending workorders can be accepted"}, status=400)
         
-        # Update workorder status
+        in_process_status = get_object_or_404(Work_Status, work_status='In_Process')
+        
+        # Update fields directly
         workorder.accepted = True
-        workorder.work_status = get_object_or_404(Work_Status, work_status='In_Process')
+        workorder.work_status = in_process_status
         workorder.assigned_to = f"{user.first_name} {user.last_name}"
         workorder.save()
         
         # Create history record
-        WorkOrderHistory.objects.create(
+        self.create_history_record(
             workorder=workorder,
-            snapshot=WorkOrderSerializer(workorder).data,
             changed_by=user,
-            action='accepted'
+            action='accepted',
+            snapshot_data={
+                'accepted': True,
+                'work_status': {'id': in_process_status.id, 'work_status': 'In_Process'},
+                'assigned_to': workorder.assigned_to
+            }
         )
         
-        return Response(WorkOrderSerializer(workorder).data)
+        serializer = self.get_serializer(workorder)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
@@ -164,18 +163,15 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         if not hasattr(user, 'profile') or not user.profile.is_utilities:
             return Response({"error": "Only utilities users can reject workorders"}, status=403)
             
-        workorder.accepted = False
-        workorder.work_status = get_object_or_404(Work_Status, work_status='Rejected')
-        workorder.save()
+        serializer = self.get_serializer(workorder, data={
+            'accepted': False,
+            'work_status': get_object_or_404(Work_Status, work_status='Rejected').id
+        }, partial=True)
         
-        WorkOrderHistory.objects.create(
-            workorder=workorder,
-            snapshot=WorkOrderSerializer(workorder).data,
-            changed_by=user,
-            action='rejected'
-        )
-        
-        return Response(WorkOrderSerializer(workorder).data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
@@ -187,54 +183,191 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             
         if workorder.work_status.work_status != 'In_Process':
             return Response({"error": "Only workorders in process can be completed"}, status=400)
-            
-        workorder.work_status = get_object_or_404(Work_Status, work_status='Completed')
+        
+        completed_status = get_object_or_404(Work_Status, work_status='Completed')
+        
+        # Update fields directly
+        workorder.work_status = completed_status
         workorder.completion_date = timezone.now()
         workorder.save()
         
-        WorkOrderHistory.objects.create(
+        # Create history record
+        self.create_history_record(
             workorder=workorder,
-            snapshot=WorkOrderSerializer(workorder).data,
             changed_by=user,
-            action='completed'
+            action='completed',
+            snapshot_data={
+                'work_status': {
+                    'id': completed_status.id, 
+                    'work_status': completed_status.work_status
+                },
+                'completion_date': workorder.completion_date.isoformat()
+            }
         )
         
-        return Response(WorkOrderSerializer(workorder).data)
+        serializer = self.get_serializer(workorder)
+        return Response(serializer.data)
+
 
     @action(detail=True, methods=['post'])
     def close(self, request, pk=None):
         workorder = self.get_object()
         user = request.user
         
+        # Debug print
+        print(f"Attempting to close workorder {workorder.id} by user {user.username}")
+        
         if not hasattr(user, 'profile') or not user.profile.is_production:
+            print("User is not production user")
             return Response({"error": "Only production users can close workorders"}, status=403)
         
         if workorder.work_status.work_status != 'Completed':
+            print(f"Work status is {workorder.work_status.work_status}, expected 'Completed'")
             return Response({"error": "Work must be completed before closing"}, status=400)
         
-        closed_value = request.data.get('closed')
-        closing_remarks = request.data.get('closing_remarks', '')
+        try:
+            closed_value = request.data.get('closed')
+            print(f"Received closed value: {closed_value}")
+            
+            if closed_value is None:
+                print("No closed value provided")
+                return Response({"error": "closed field is required"}, status=400)
+            
+            # Get the Closed instance
+            closed_status = 'Yes' if str(closed_value).lower() in ['true', 'yes', '1'] else 'No'
+            print(f"Looking for Closed status: {closed_status}")
+            
+            closed_instance = get_object_or_404(Closed, closed=closed_status)
+            print(f"Found Closed instance: {closed_instance}")
+            
+            # Update fields directly
+            workorder.closed = closed_instance
+            workorder.closing_remarks = request.data.get('closing_remarks', '')
+            workorder.save()
+            
+            # Create history record
+            self.create_history_record(
+                workorder=workorder,
+                changed_by=user,
+                action='closed' if closed_instance.closed == 'Yes' else 'reopened',
+                snapshot_data={
+                    'closed': {
+                        'id': closed_instance.id,
+                        'closed': closed_instance.closed
+                    },
+                    'closing_remarks': workorder.closing_remarks
+                }
+            )
+            
+            serializer = self.get_serializer(workorder)
+            print("Workorder closed successfully")
+            return Response(serializer.data)
+            
+        except Exception as e:
+            print(f"Error closing workorder: {str(e)}")
+            return Response({"error": str(e)}, status=400)
+
+    def perform_create(self, serializer):
+        workorder = serializer.save()
+        self.create_history_record(
+            workorder=workorder,
+            changed_by=self.request.user,
+            action='created',
+            full_snapshot=True
+        )
+
+    def perform_update(self, serializer):
+        old_instance = self.get_object()
+        old_snapshot = self.create_complete_snapshot(old_instance)
         
-        if closed_value is None:
-            return Response({"error": "closed field is required"}, status=400)
+        workorder = serializer.save()
+        new_snapshot = self.create_complete_snapshot(workorder)
+        diff = self.get_changed_fields(old_snapshot, new_snapshot)
         
-        # Get the Closed instance based on the boolean value
-        closed_status = 'Yes' if closed_value else 'No'
-        closed_instance = get_object_or_404(Closed, closed=closed_status)
+        action = self.determine_action(serializer.validated_data, diff['changed_fields'])
+        self.create_history_record(
+            workorder=workorder,
+            changed_by=self.request.user,
+            action=action,
+            snapshot_data={field: new_snapshot[field] for field in diff['changed_fields']},
+            full_snapshot=False
+        )
+
+    def create_history_record(self, workorder, changed_by, action, snapshot_data=None, full_snapshot=False):
+        snapshot = self.create_complete_snapshot(workorder) if full_snapshot else (snapshot_data or {})
+        snapshot['id'] = workorder.id
         
-        workorder.closed = closed_instance
-        workorder.closing_remarks = closing_remarks
-        workorder.save()
-        
-        # Create history record
         WorkOrderHistory.objects.create(
             workorder=workorder,
-            snapshot=WorkOrderSerializer(workorder).data,
-            changed_by=user,
-            action='closed' if closed_value else 'reopened'
+            snapshot=snapshot,
+            changed_by=changed_by,
+            action=action,
+            timestamp=timezone.now()
         )
+
+    def create_complete_snapshot(self, workorder):
+        return {
+            'id': workorder.id,
+            'initiation_date': str(workorder.initiation_date),
+            'department': workorder.department,
+            'problem': workorder.problem,
+            'initiated_by': {
+                'id': workorder.initiated_by.id,
+                'username': workorder.initiated_by.username
+            },
+            'equipment': {
+                'id': workorder.equipment.id,
+                'machine': workorder.equipment.machine,
+                'machine_type': str(workorder.equipment.machine_type)
+            },
+            'part': workorder.part.id if workorder.part else None,
+            'type_of_work': workorder.type_of_work.id,
+            'closed': workorder.closed.id if workorder.closed else None,
+            'closing_remarks': workorder.closing_remarks,
+            'accepted': workorder.accepted,
+            'assigned_to': workorder.assigned_to,
+            'target_date': str(workorder.target_date) if workorder.target_date else None,
+            'remarks': workorder.remarks,
+            'replaced_part': workorder.replaced_part,
+            'completion_date': str(workorder.completion_date),
+            'work_status': {
+                'id': workorder.work_status.id,
+                'work_status': workorder.work_status.work_status
+            },
+            'pending': workorder.pending.id if workorder.pending else None,
+            'pr_number': workorder.pr_number,
+            'pr_date': str(workorder.pr_date) if workorder.pr_date else None,
+            'timestamp': str(workorder.timestamp) if workorder.timestamp else None
+        }
+
+    def get_changed_fields(self, previous, current):
+        changed_fields = []
+        action_hint = None
         
-        return Response(WorkOrderSerializer(workorder).data)
+        for field in previous.keys():
+            if field not in current or previous[field] != current[field]:
+                changed_fields.append(field)
+                if field == 'work_status' and current.get('work_status', {}).get('work_status') == 'Completed':
+                    action_hint = 'completed'
+                elif field == 'accepted' and current.get('accepted'):
+                    action_hint = 'accepted'
+                elif field == 'closed' and current.get('closed'):
+                    action_hint = 'closed'
+        
+        return {
+            'changed_fields': changed_fields,
+            'action_hint': action_hint
+        }
+
+    def determine_action(self, validated_data, changed_fields):
+        if 'accepted' in validated_data:
+            return 'accepted' if validated_data['accepted'] else 'rejected'
+        if 'work_status' in validated_data:
+            if validated_data['work_status'].work_status == 'Completed':
+                return 'completed'
+        if 'closed' in validated_data:
+            return 'closed' if validated_data['closed'].closed == 'Yes' else 'reopened'
+        return 'updated'
 
 
 class WorkOrderHistoryViewSet(viewsets.ReadOnlyModelViewSet):
