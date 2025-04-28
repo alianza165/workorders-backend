@@ -162,14 +162,33 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         
         if not hasattr(user, 'profile') or not user.profile.is_utilities:
             return Response({"error": "Only utilities users can reject workorders"}, status=403)
-            
-        serializer = self.get_serializer(workorder, data={
-            'accepted': False,
-            'work_status': get_object_or_404(Work_Status, work_status='Rejected').id
-        }, partial=True)
         
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        # Get the rejected status first
+        rejected_status = get_object_or_404(Work_Status, work_status='Rejected')
+        
+        # Update fields directly (like in accept action)
+        workorder.accepted = False
+        workorder.work_status = rejected_status
+        workorder.assigned_to = ""  # Clear assigned_to when rejecting
+        workorder.save()
+        
+        # Create history record
+        self.create_history_record(
+            workorder=workorder,
+            changed_by=user,
+            action='rejected',
+            snapshot_data={
+                'accepted': False,
+                'work_status': {
+                    'id': rejected_status.id,
+                    'work_status': rejected_status.work_status
+                },
+                'assigned_to': ""  # Include cleared assigned_to in history
+            }
+        )
+        
+        # Return the serialized response
+        serializer = self.get_serializer(workorder)
         return Response(serializer.data)
 
 
@@ -277,10 +296,18 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
+        print("Incoming data:", self.request.data)  # Log incoming data
+        
         old_instance = self.get_object()
         old_snapshot = self.create_complete_snapshot(old_instance)
         
-        workorder = serializer.save()
+        try:
+            workorder = serializer.save()
+            print("Update successful")
+        except Exception as e:
+            print("Serializer error:", str(e))
+            raise
+        
         new_snapshot = self.create_complete_snapshot(workorder)
         diff = self.get_changed_fields(old_snapshot, new_snapshot)
         
