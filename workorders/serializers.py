@@ -113,13 +113,6 @@ class WorkOrderCreateSerializer(serializers.ModelSerializer):
         
         workorder = super().create(validated_data)
         
-        WorkOrderHistory.objects.create(
-            workorder=workorder,
-            snapshot=self.to_representation(workorder),
-            changed_by=user,
-            action='created'
-        )
-        
         return workorder
 
 class WorkOrderUpdateSerializer(serializers.ModelSerializer):
