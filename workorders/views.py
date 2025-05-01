@@ -16,6 +16,8 @@ from .serializers import (
 )
 from django.db.models import Q
 from django.utils import timezone
+from rest_framework.pagination import LimitOffsetPagination
+
 
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
@@ -52,10 +54,26 @@ class ClosedViewSet(viewsets.ModelViewSet):
     serializer_class = ClosedSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+class EquipmentPagination(LimitOffsetPagination):
+    default_limit = 100  # Set a higher default limit
+    max_limit = 1000     # Set a safe maximum limit
+
 class EquipmentViewSet(viewsets.ModelViewSet):
-    queryset = Equipment.objects.all()
+    queryset = Equipment.objects.all().select_related('machine_type', 'location')
     serializer_class = EquipmentSerializer
+    pagination_class = EquipmentPagination
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(machine__icontains=search) |
+                Q(machine_type__machine_type__icontains=search) |
+                Q(location__area__icontains=search)
+            )
+        return queryset
 
 class PartViewSet(viewsets.ModelViewSet):
     queryset = Part.objects.all()
