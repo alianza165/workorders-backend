@@ -152,10 +152,17 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         
         in_process_status = get_object_or_404(Work_Status, work_status='In_Process')
         
-        # Update fields directly
+        # Get data from request
+        assigned_to = request.data.get('assigned_to', f"{user.first_name} {user.last_name}")
+        target_date = request.data.get('target_date')
+        remarks = request.data.get('remarks')
+        
+        # Update fields
         workorder.accepted = True
         workorder.work_status = in_process_status
-        workorder.assigned_to = f"{user.first_name} {user.last_name}"
+        workorder.assigned_to = assigned_to
+        workorder.target_date = target_date
+        workorder.remarks = remarks
         workorder.save()
         
         # Create history record
@@ -166,7 +173,9 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             snapshot_data={
                 'accepted': True,
                 'work_status': {'id': in_process_status.id, 'work_status': 'In_Process'},
-                'assigned_to': workorder.assigned_to
+                'assigned_to': workorder.assigned_to,
+                'target_date': workorder.target_date,
+                'remarks': workorder.remarks
             }
         )
         
