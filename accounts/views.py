@@ -42,11 +42,13 @@ class CustomAuthToken(ObtainAuthToken):
         
         # Get the user's profile
         profile = user.profile
+        print(user.username)
         
         return Response({
             'token': token.key,
             'user_id': user.pk,
             'email': user.email,
+            'username': user.username,
             'profile': {
                 'is_manager': profile.is_manager,
                 'is_production': profile.is_production,
