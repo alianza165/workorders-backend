@@ -60,7 +60,7 @@ WSGI_APPLICATION = 'proj.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'backup11',
+        'NAME': 'backup1',
         'USER': 'alianza',
         'PASSWORD': 'alianza165',
         'HOST': 'localhost',
@@ -83,20 +83,51 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    'www.technologyhax.com'
+    'https://technologyhax.com',
+    'https://www.technologyhax.com',
+]
+
 CORS_ALLOW_ALL_ORIGINS = False  # Disable wildcard origin
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # Your Next.js frontend
+    'https://technologyhax.com',
+    'https://www.technologyhax.com',
+    'www.technologyhax.com'
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ORIGIN_WHITELIST = (
+    'www.technologyhax.com'
+    'https://technologyhax.com',
+    'https://www.technologyhax.com'
+)
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = False
+CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
+CSRF_COOKIE_DOMAIN = '.technologyhax.com'
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Karachi'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_URL = 'backend/static/'
+
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = 'backend/media/'
+
+#FORCE_SCRIPT_NAME = '/backend'
+#USE_X_FORWARDED_HOST = True     # For proper URL generation behind proxy
+
+#STATICFILES_DIRS = [
+#    os.path.join(BASE_DIR, 'static'),  # Your existing static files
+#]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
