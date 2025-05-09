@@ -32,15 +32,29 @@ router.register(r'profiles', account_views.ProfileViewSet)
 router.register(r'register', account_views.UserRegistrationViewSet, basename='register')
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
-    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('api-token-auth/', account_views.CustomAuthToken.as_view(), name='api_token_auth'),
+    path('backend/admin/', admin.site.urls),
+    path('backend/api/', include(router.urls)),
+    path('backend/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('backend/api-token-auth/', account_views.CustomAuthToken.as_view(), name='api_token_auth'),
     
     # Add custom endpoints for workflow actions
-    path('api/workorders/<int:pk>/check-access/', workorder_views.check_workorder_access, name='workorder-check-access'),
-    path('api/workorders/<int:pk>/accept/', workorder_views.WorkOrderViewSet.as_view({'post': 'accept'}), name='workorder-accept'),
-    path('api/workorders/<int:pk>/reject/', workorder_views.WorkOrderViewSet.as_view({'post': 'reject'}), name='workorder-reject'),
-    path('api/workorders/<int:pk>/complete/', workorder_views.WorkOrderViewSet.as_view({'post': 'complete'}), name='workorder-complete'),
-    path('api/workorders/<int:pk>/close/', workorder_views.WorkOrderViewSet.as_view({'post': 'close'}), name='workorder-close'),
+    path('backend/api/workorders/<int:pk>/check-access/', workorder_views.check_workorder_access, name='workorder-check-access'),
+    path('backend/api/workorders/<int:pk>/accept/', workorder_views.WorkOrderViewSet.as_view({'post': 'accept'}), name='workorder-accept'),
+    path('backend/api/workorders/<int:pk>/reject/', workorder_views.WorkOrderViewSet.as_view({'post': 'reject'}), name='workorder-reject'),
+    path('backend/api/workorders/<int:pk>/complete/', workorder_views.WorkOrderViewSet.as_view({'post': 'complete'}), name='workorder-complete'),
+    path('backend/api/workorders/<int:pk>/close/', workorder_views.WorkOrderViewSet.as_view({'post': 'close'}), name='workorder-close'),
 ]
+
+#urlpatterns = [
+#    path('admin/', admin.site.urls),
+#    path('api/', include(router.urls)),
+#    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+#    path('api-token-auth/', account_views.CustomAuthToken.as_view(), name='api_token_auth'),
+#    
+#    # Add custom endpoints for workflow actions
+#    path('api/workorders/<int:pk>/check-access/', workorder_views.check_workorder_access, name='workorder-check-access'),
+#    path('api/workorders/<int:pk>/accept/', workorder_views.WorkOrderViewSet.as_view({'post': 'accept'}), name='workorder-accept'),
+#    path('api/workorders/<int:pk>/reject/', workorder_views.WorkOrderViewSet.as_view({'post': 'reject'}), name='workorder-reject'),
+#    path('api/workorders/<int:pk>/complete/', workorder_views.WorkOrderViewSet.as_view({'post': 'complete'}), name='workorder-complete'),
+#    path('api/workorders/<int:pk>/close/', workorder_views.WorkOrderViewSet.as_view({'post': 'close'}), name='workorder-close'),
+#]
