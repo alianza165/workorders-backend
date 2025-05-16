@@ -60,7 +60,7 @@ WSGI_APPLICATION = 'proj.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'backup1',
+        'NAME': 'backup12',
         'USER': 'alianza',
         'PASSWORD': 'alianza165',
         'HOST': 'localhost',
@@ -94,7 +94,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # Your Next.js frontend
     'https://technologyhax.com',
     'https://www.technologyhax.com',
-    'www.technologyhax.com'
 ]
 CORS_ALLOW_CREDENTIALS = True
 
