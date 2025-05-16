@@ -84,9 +84,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'www.technologyhax.com'
+    # 'www.technologyhax.com',
     'https://technologyhax.com',
     'https://www.technologyhax.com',
+    "http://localhost:3000",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = False  # Disable wildcard origin
@@ -98,11 +99,16 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ORIGIN_WHITELIST = (
+    "http://localhost:3000",
     'www.technologyhax.com'
     'https://technologyhax.com',
     'https://www.technologyhax.com'
 )
 
+CSRF_USE_SESSIONS = False  # Important for API auth
+CSRF_COOKIE_DOMAIN = None  # Remove this for localhost to work
+CSRF_COOKIE_SAMESITE = 'Lax'  # Or 'None' if using HTTPS
+SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True

@@ -36,6 +36,7 @@ urlpatterns = [
     path('backend/api/', include(router.urls)),
     path('backend/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('backend/api-token-auth/', account_views.CustomAuthToken.as_view(), name='api_token_auth'),
+    path('backend/get-csrf-token/', account_views.get_csrf_token, name='get_csrf_token'),
     
     # Add custom endpoints for workflow actions
     path('backend/api/workorders/<int:pk>/check-access/', workorder_views.check_workorder_access, name='workorder-check-access'),
