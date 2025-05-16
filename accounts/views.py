@@ -5,11 +5,25 @@ from .serializers import UserSerializer, ProfileSerializer, DepartmentSerializer
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
+from django.http import JsonResponse
+from django.middleware.csrf import get_token
+import logging
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+logger = logging.getLogger(__name__)
+
+def get_csrf_token(request):
+    token = get_token(request)
+    logger.info(f"Generated CSRF Token: {token}")  # Log to Django server
+    print(f"CSRF Token (Server): {token}")  # Print to console
+    return JsonResponse({
+        'csrfToken': token,
+        'message': 'CSRF token generated successfully'
+    })
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
