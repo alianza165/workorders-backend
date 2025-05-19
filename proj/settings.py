@@ -26,7 +26,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+#    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -60,7 +60,7 @@ WSGI_APPLICATION = 'proj.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'backup12',
+        'NAME': 'backup1',
         'USER': 'alianza',
         'PASSWORD': 'alianza165',
         'HOST': 'localhost',
@@ -107,7 +107,7 @@ CORS_ORIGIN_WHITELIST = (
 
 CSRF_USE_SESSIONS = False  # Important for API auth
 CSRF_COOKIE_DOMAIN = None  # Remove this for localhost to work
-CSRF_COOKIE_SAMESITE = 'Lax'  # Or 'None' if using HTTPS
+CSRF_COOKIE_SAMESITE = 'None'  # Or 'None' if using HTTPS
 SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = True

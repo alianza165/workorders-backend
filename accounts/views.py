@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 import logging
+from django.views.decorators.csrf import csrf_exempt
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
@@ -16,6 +17,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 
 logger = logging.getLogger(__name__)
 
+#@csrf_exempt
 def get_csrf_token(request):
     token = get_token(request)
     logger.info(f"Generated CSRF Token: {token}")  # Log to Django server
@@ -24,6 +26,10 @@ def get_csrf_token(request):
         'csrfToken': token,
         'message': 'CSRF token generated successfully'
     })
+
+def get_csrf_broken(request):
+    print("This view was hit!")  # Check if request reaches Django
+    return JsonResponse({'status': 'success'})
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
