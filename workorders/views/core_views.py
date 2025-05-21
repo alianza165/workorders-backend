@@ -4,11 +4,11 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from django.contrib.auth.models import User
-from .models import (
+from ..models import (
     Location, Machine_Type, Part_Type, Type_of_Work, Work_Status,
     Pending, Closed, Equipment, Part, workorders, WorkOrderHistory
 )
-from .serializers import (
+from ..serializers import (
     LocationSerializer, MachineTypeSerializer, PartTypeSerializer,
     TypeOfWorkSerializer, WorkStatusSerializer, PendingSerializer,
     ClosedSerializer, EquipmentSerializer, PartSerializer, WorkOrderSerializer, 
