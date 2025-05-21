@@ -1,0 +1,3 @@
+# workorders/views/__init__.py
+from .core_views import *  # Import your existing views
+from .ai_views import AIAgentView  # Make the new view available

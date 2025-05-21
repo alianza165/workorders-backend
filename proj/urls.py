@@ -32,6 +32,7 @@ router.register(r'profiles', account_views.ProfileViewSet)
 router.register(r'register', account_views.UserRegistrationViewSet, basename='register')
 
 urlpatterns = [
+    path('backend/ai-agent/', workorder_views.AIAgentView.as_view(), name='ai-agent'),
     path('backend/admin/', admin.site.urls),
     path('backend/api/', include(router.urls)),
     path('backend/api-auth/', include('rest_framework.urls', namespace='rest_framework')),
