@@ -86,6 +86,11 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         model = workorders
         fields = '__all__'
         read_only_fields = ['initiation_date', 'timestamp']
+        extra_kwargs = {
+            'target_date': {'required': False},
+            'pr_date': {'required': False},
+            'completion_date': {'required': False},
+        }
 
 
 class WorkOrderCreateSerializer(serializers.ModelSerializer):
