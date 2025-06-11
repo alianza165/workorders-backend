@@ -1,4 +1,3 @@
-# api/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -8,93 +7,135 @@ from ..utils.ai_utils import get_vector_store
 from rest_framework.permissions import AllowAny
 from workorders.models import workorders
 import re
+import logging
+from django.core.cache import cache
+from concurrent.futures import ThreadPoolExecutor
+from django.db.models import Q
+
+logger = logging.getLogger(__name__)
 
 class AIAgentView(APIView):
     permission_classes = [AllowAny]
     
-    def extract_keywords(self, prompt):
-        """Enhanced keyword extraction that handles multiple question formats"""
-        # Convert to lowercase and remove punctuation
-        clean_prompt = re.sub(r'[^\w\s]', '', prompt.lower())
+    def __init__(self):
+        # Initialize components that can be reused
+        self.executor = ThreadPoolExecutor(max_workers=4)
+        self.llm = OpenAI(
+            temperature=0.2,
+            max_tokens=1000,
+            model="gpt-3.5-turbo-instruct"
+        )
+
+    def get_database_count(self, keyword):
+        """Search across multiple fields with optimized queries"""
+        if not keyword:
+            return None
+            
+        cache_key = f"count_{keyword.lower().strip()}"
+        if cached := cache.get(cache_key):
+            return cached
+            
+        # Create a query that searches across multiple relevant fields
+        query = Q(problem__icontains=keyword)
+        query |= Q(equipment__machine__icontains=keyword)
+        query |= Q(equipment__machine_type__machine_type__icontains=keyword)
+        query |= Q(department__icontains=keyword)
+        query |= Q(replaced_part__icontains=keyword)
+        query |= Q(remarks__icontains=keyword)
         
-        # Patterns that capture the main subject of the question
+        count = workorders.objects.filter(query).count()
+        cache.set(cache_key, count, timeout=60*5)  # Cache for 5 minutes
+        return count
+
+    def extract_keywords(self, prompt):
+        """Enhanced keyword extraction with field-specific patterns"""
+        cache_key = f"keywords_{prompt.lower().strip()}"
+        if cached := cache.get(cache_key):
+            return cached
+            
+        # Field-specific patterns
         patterns = [
-            r'how many workorders (?:have|with|for) (.*?) (?:problems|issues)',
-            r'(?:what|which) (.*?) (?:problems|issues)',
-            r'(?:summarize|describe) (.*?) (?:problems|issues)',
-            r'(?:about|related to|involving|with|for) (.*?)(?:\?|$)',
-            r'workorders (?:about|with|for) (.*?)(?:\?|$)'
+            # Equipment patterns
+            r'(machine|equipment)\s+(?:named|called|number)?\s*([^\?\s]+)',
+            r'(?:check|analyze|review)\s+([^\?\s]+)\s+(?:machine|equipment)',
+            
+            # Problem patterns
+            r'(?:issue|problem|fault)\s+(?:with|in)?\s*([^\?\s]+)',
+            r'what\'?s?\s+wrong\s+with\s+([^\?\s]+)',
+            
+            # Department patterns
+            r'in\s+the\s+([^\?\s]+)\s+(?:department|area)',
+            
+            # General patterns (keep your existing ones)
+            r'(?:workorders?|issues?|problems?)\s+(?:with|for|about)\s+([^\?]+)',
+            r'(?:what|which|how many)\s+([^\?]+)\s+(?:workorders?|issues?|problems?)',
+            r'([^\?]+)\s+(?:workorders?|issues?|problems?)'
         ]
         
-        # Try each pattern in order
+        clean_prompt = re.sub(r'[^\w\s]', '', prompt.lower())
         for pattern in patterns:
-            match = re.search(pattern, clean_prompt)
-            if match:
+            if match := re.search(pattern, clean_prompt):
                 keyword = match.group(1).strip()
-                # Remove common stopwords
-                stopwords = {'the', 'a', 'an', 'some', 'any', 'these', 'those'}
+                # Remove stopwords
+                stopwords = {'the', 'a', 'an', 'some', 'any', 'these', 'those', 'with', 'for', 'about'}
                 keyword = ' '.join([word for word in keyword.split() if word not in stopwords])
-                return keyword if keyword else None
-        
-        # Fallback: look for nouns after question words
-        question_words = {'how many', 'what', 'which', 'summarize', 'describe'}
-        words = clean_prompt.split()
-        for i, word in enumerate(words):
-            if word in question_words and i+1 < len(words):
-                return words[i+1]
-        
+                if keyword:
+                    cache.set(cache_key, keyword, timeout=60*15)
+                    return keyword
         return None
-    
-    def get_database_count(self, keyword):
-        """Get accurate count from database"""
-        return workorders.objects.filter(problem__icontains=keyword).count()
-    
+
     def post(self, request):
         prompt = request.data.get('prompt')
         if not prompt:
             return Response({"error": "Prompt is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            keyword = self.extract_keywords(prompt)
-            exact_count = self.get_database_count(keyword) if keyword else None
+            # Parallelize the initial operations
+            keyword_future = self.executor.submit(self.extract_keywords, prompt)
+            keyword = keyword_future.result()
             
+            count_future = self.executor.submit(self.get_database_count, keyword)
+            exact_count = count_future.result() if keyword else None
+            
+            # Get pre-configured vector store
             vector_store = get_vector_store()
             
-            # Configure retriever to prioritize keyword matches
+            # Optimized retriever configuration
             retriever_config = {
-                "search_type": "similarity_score_threshold",
+                "search_type": "similarity",
                 "search_kwargs": {
-                    "k": min(exact_count, 35) if exact_count else 35,  # Don't exceed actual count
-                    "score_threshold": 0.7,  # Higher threshold
-                    "filter": {"problem": {"$contains": keyword.lower()}} if keyword else None
+                    "k": min(exact_count or 20, 20),  # Reduced from 35
+                    "score_threshold": 0.65,  # Slightly lower threshold
+                    "filter": {"problem": {"$ilike": f"%{keyword.lower()}%"}} if keyword else None
+                }
             }
-            }
             
-            # Enhanced prompt that knows about the exact count
-            enhanced_prompt = f"""
-            Analyze work orders related to: {keyword or 'the query'}
-            Exact matching work orders: {exact_count or 'Not calculated'}
+            # Streamlined prompt template
+            enhanced_prompt = f"""Analyze these work orders regarding '{keyword or 'the query'}':
+
+Key Data:
+- Matching orders: {exact_count or 'N/A'}
+- Focus areas:
+  1. Problem patterns
+  2. Equipment involved
+  3. Frequency trends
+  4. Recommended actions
+
+Question: {prompt}"""
             
-            Provide:
-            1. Problem patterns
-            2. Equipment involved
-            3. Time trends
-            4. Recommended actions
-            
-            Question: {prompt}
-            """
-            
+            # Use faster chain type
             qa = RetrievalQA.from_chain_type(
-                llm=OpenAI(temperature=0.2, max_tokens=1000),
-                chain_type="refine",  # Better for combining information
+                llm=self.llm,
+                chain_type="stuff",  # Faster than "refine"
                 retriever=vector_store.as_retriever(**retriever_config),
                 return_source_documents=True
             )
             
+            # Execute the chain
             result = qa({"query": enhanced_prompt})
             
             # Format response
-            response = {
+            return Response({
                 "answer": result["result"],
                 "statistics": {
                     "exact_count": exact_count,
@@ -104,14 +145,14 @@ class AIAgentView(APIView):
                     {
                         "work_order_id": doc.metadata.get("id"),
                         "equipment": doc.metadata.get("equipment"),
-                        "problem": doc.metadata.get("problem")
-                    } for doc in result["source_documents"]]
-            }
-            
-            return Response(response)
+                        "problem": doc.metadata.get("problem")[:100]  # Truncate
+                    } for doc in result["source_documents"]
+                ]
+            })
             
         except Exception as e:
+            logger.error(f"AI Agent Error: {str(e)}", exc_info=True)
             return Response({
-                "error": str(e),
-                "detail": "Error processing request"
+                "error": "Processing error",
+                "detail": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
