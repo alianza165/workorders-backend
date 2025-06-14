@@ -2,7 +2,6 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 from accounts.models import Profile, Department
-from django.contrib.postgres.indexes import GinIndex
 
 
 class Location(models.Model):
@@ -101,10 +100,6 @@ class workorders(models.Model):
 	pr_date = models.DateTimeField(null=True, blank=True)
 	timestamp = models.DateTimeField(null=True, blank=True)
 
-	class Meta:
-		indexes = [
-			GinIndex(fields=['problem'], name='problem_gin_idx'),
-		]
 
 	def __str__(self):
 		i = str(self.initiation_date)

@@ -190,12 +190,8 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         if not hasattr(user, 'profile') or not user.profile.is_utilities:
             return Response({"error": "Only utilities users can reject workorders"}, status=403)
         
-        # Get the rejected status first
-        rejected_status = get_object_or_404(Work_Status, work_status='Rejected')
-        
         # Update fields directly (like in accept action)
         workorder.accepted = False
-        workorder.work_status = rejected_status
         workorder.assigned_to = ""  # Clear assigned_to when rejecting
         workorder.save()
         
@@ -206,10 +202,6 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             action='rejected',
             snapshot_data={
                 'accepted': False,
-                'work_status': {
-                    'id': rejected_status.id,
-                    'work_status': rejected_status.work_status
-                },
                 'assigned_to': ""  # Include cleared assigned_to in history
             }
         )
