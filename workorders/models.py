@@ -2,6 +2,8 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 from accounts.models import Profile, Department
+from django.contrib.postgres.indexes import GinIndex, OpClass
+from django.db.models.functions import Upper
 
 
 class Location(models.Model):
@@ -100,6 +102,20 @@ class workorders(models.Model):
 	pr_date = models.DateTimeField(null=True, blank=True)
 	timestamp = models.DateTimeField(null=True, blank=True)
 
+	class Meta:
+		indexes = [
+			models.Index(fields=['initiation_date'], name='workorders_init_date_idx'),
+			models.Index(fields=['department'], name='workorders_dept_idx'),
+			GinIndex(
+				OpClass(Upper('problem'), name='gin_trgm_ops'),
+				name='workorders_problem_gin_idx'
+			),
+			models.Index(fields=['equipment'], name='workorders_equip_idx'),
+			models.Index(fields=['part'], name='workorders_part_idx'),
+			models.Index(fields=['type_of_work'], name='workorders_work_type_idx'),
+			models.Index(fields=['work_status'], name='workorders_status_idx'),
+		]
+		ordering = ['-initiation_date']
 
 	def __str__(self):
 		i = str(self.initiation_date)
