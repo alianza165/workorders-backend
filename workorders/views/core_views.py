@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from django.contrib.auth.models import User
+from django_filters import rest_framework as filters
 from ..models import (
     Location, Machine_Type, Part_Type, Type_of_Work, Work_Status,
     Pending, Closed, Equipment, Part, workorders, WorkOrderHistory
@@ -101,14 +102,26 @@ def check_workorder_access(request, pk):
     
     return Response({'status': 'unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
+class WorkOrderFilter(filters.FilterSet):
+    work_status = filters.CharFilter(field_name='work_status__work_status')
+    department = filters.CharFilter(field_name='department')
+    accepted = filters.BooleanFilter(field_name='accepted')
+    closed = filters.CharFilter(field_name='closed__closed')
+
+    class Meta:
+        model = workorders
+        fields = ['work_status', 'department', 'accepted', 'closed']
+
 class WorkOrderViewSet(viewsets.ModelViewSet):
     queryset = workorders.objects.all().order_by('-initiation_date')
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = WorkOrderFilter
     
     def get_serializer_class(self):
         if self.action == 'create':
             return WorkOrderCreateSerializer
-        return WorkOrderSerializer  # Use main serializer for all other actions
+        return WorkOrderSerializer
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -117,9 +130,9 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         if not hasattr(user, 'profile'):
             return queryset.none()
         
+        # Apply permission-based filtering first
         if user.profile.is_manager:
-            return queryset
-        
+            queryset = queryset
         elif user.profile.is_utilities:
             user_dept = user.profile.department.department
             dept_mapping = {
@@ -128,16 +141,33 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             }
             
             if user_dept in dept_mapping:
-                return queryset.filter(
+                queryset = queryset.filter(
                     department=dept_mapping[user_dept],
                     work_status__work_status__in=['Pending', 'In_Process', 'Completed']
                 )
-            return queryset.none()
-        
+            else:
+                return queryset.none()
         elif user.profile.is_production:
-            return queryset.filter(Q(initiated_by=user))
-        
-        return queryset.none()
+            queryset = queryset.filter(Q(initiated_by=user))
+        else:
+            return queryset.none()
+
+        # Now apply the requested filters
+        work_status = self.request.query_params.get('work_status')
+        department = self.request.query_params.get('department')
+        accepted = self.request.query_params.get('accepted')
+        closed = self.request.query_params.get('closed')
+
+        if work_status:
+            queryset = queryset.filter(work_status__work_status=work_status)
+        if department:
+            queryset = queryset.filter(department=department)
+        if accepted:
+            queryset = queryset.filter(accepted=accepted.lower() == 'true')
+        if closed:
+            queryset = queryset.filter(closed__closed=closed)
+
+        return queryset
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
