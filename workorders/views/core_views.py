@@ -56,7 +56,7 @@ class ClosedViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 class EquipmentPagination(LimitOffsetPagination):
-    default_limit = 100  # Set a higher default limit
+    default_limit = 1000  # Set a higher default limit
     max_limit = 1000     # Set a safe maximum limit
 
 class EquipmentViewSet(viewsets.ModelViewSet):
