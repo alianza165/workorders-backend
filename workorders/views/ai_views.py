@@ -4,7 +4,7 @@ from rest_framework import status
 from langchain.chains import RetrievalQA
 from langchain.llms import OpenAI
 from ..utils.ai_utils import get_vector_store
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from workorders.models import workorders, Equipment, Part, Type_of_Work, Work_Status
 from django.db.models import Q, Count, F
 from django.db import connection
@@ -28,7 +28,7 @@ def is_pure_total_count_query(prompt):
     return any(re.search(pattern, prompt.lower()) for pattern in pure_total_patterns)
 
 class AIAgentView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     
     def __init__(self):
         self.executor = ThreadPoolExecutor(max_workers=4)
