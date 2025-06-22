@@ -7,13 +7,13 @@ from django.contrib.auth.models import User
 from django_filters import rest_framework as filters
 from ..models import (
     Location, Machine_Type, Part_Type, Type_of_Work, Work_Status,
-    Pending, Closed, Equipment, Part, workorders, WorkOrderHistory
+    Pending, Closed, Equipment, Part, workorders, WorkOrderHistory, UserPrompt
 )
 from ..serializers import (
     LocationSerializer, MachineTypeSerializer, PartTypeSerializer,
     TypeOfWorkSerializer, WorkStatusSerializer, PendingSerializer,
     ClosedSerializer, EquipmentSerializer, PartSerializer, WorkOrderSerializer, 
-    WorkOrderHistorySerializer, WorkOrderCreateSerializer, WorkOrderSerializer,
+    WorkOrderHistorySerializer, WorkOrderCreateSerializer, WorkOrderSerializer, UserPromptSerializer
 )
 from django.db.models import Q
 from django.utils import timezone
@@ -453,3 +453,17 @@ class WorkOrderHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         workorder_id = self.kwargs['workorder_pk']
         return WorkOrderHistory.objects.filter(workorder_id=workorder_id).order_by('-timestamp')
+
+
+class UserPromptViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = UserPromptSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = UserPrompt.objects.all().order_by('-created_at')
+        
+        # If user is not admin/superuser, filter to only their prompts
+        if not self.request.user.is_superuser and not self.request.user.is_staff:
+            queryset = queryset.filter(user=self.request.user)
+            
+        return queryset

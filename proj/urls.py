@@ -18,6 +18,7 @@ router.register(r'pending-statuses', workorder_views.PendingViewSet)
 router.register(r'closed-statuses', workorder_views.ClosedViewSet)
 router.register(r'equipment', workorder_views.EquipmentViewSet)  # Fixed typo: EquipmentViewSet
 router.register(r'parts', workorder_views.PartViewSet)
+router.register(r'user-prompts', workorder_views.UserPromptViewSet, basename='userprompt')
 router.register(r'workorders', workorder_views.WorkOrderViewSet, basename='workorder')  # Added basename
 router.register(
     r'workorders/(?P<workorder_pk>\d+)/history', 

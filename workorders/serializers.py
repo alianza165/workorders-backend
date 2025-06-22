@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Location, Machine_Type, Part_Type, Type_of_Work, Work_Status,
-    Pending, Closed, Equipment, Part, workorders, WorkOrderHistory
+    Pending, Closed, Equipment, Part, workorders, WorkOrderHistory, UserPrompt
 )
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -173,3 +173,10 @@ class WorkOrderHistorySerializer(serializers.ModelSerializer):
         model = WorkOrderHistory
         fields = '__all__'
         read_only_fields = ['timestamp']
+
+
+class UserPromptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPrompt
+        fields = '__all__'
+        read_only_fields = ['created_at']

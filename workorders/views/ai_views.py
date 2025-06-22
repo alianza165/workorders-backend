@@ -5,7 +5,8 @@ from langchain.chains import RetrievalQA
 from langchain.llms import OpenAI
 from ..utils.ai_utils import get_vector_store
 from rest_framework.permissions import IsAuthenticated
-from workorders.models import workorders, Equipment, Part, Type_of_Work, Work_Status
+from ..models import workorders, Equipment, Part, Type_of_Work, Work_Status, UserPrompt
+from ..serializers import UserPromptSerializer 
 from django.db.models import Q, Count, F
 from django.db import connection
 import re
@@ -146,6 +147,16 @@ class AIAgentView(APIView):
             return Response({"error": "Prompt is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
+
+            # Create and save the prompt before processing
+            prompt_record = UserPrompt.objects.create(
+                user=request.user,
+                prompt=prompt,
+                metadata={
+                    'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                    'ip_address': request.META.get('REMOTE_ADDR', ''),
+                }
+            )
             # Check if this is a pure total count request (no time filters)
             if is_pure_total_count_query(prompt):
                 with connection.cursor() as cursor:
@@ -253,6 +264,11 @@ class AIAgentView(APIView):
             # Get LLM response
             result = self.llm(enhanced_prompt)
             
+            # After getting the AI response, update the record
+            prompt_record.response = result  # 'result' from your LLM response
+            print(prompt_record)
+            prompt_record.save()
+
             return Response({
                 "answer": result,
                 "statistics": {
@@ -269,6 +285,10 @@ class AIAgentView(APIView):
             })
             
         except Exception as e:
+            # Log the error in the prompt record if saving
+            if 'prompt_record' in locals():
+                prompt_record.metadata['error'] = str(e)
+                prompt_record.save()
             logger.error(f"AI Agent Error: {str(e)}", exc_info=True)
             return Response({
                 "error": "Processing error",

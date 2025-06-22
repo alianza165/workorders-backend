@@ -106,10 +106,6 @@ class workorders(models.Model):
 		indexes = [
 			models.Index(fields=['initiation_date'], name='workorders_init_date_idx'),
 			models.Index(fields=['department'], name='workorders_dept_idx'),
-			GinIndex(
-				OpClass(Upper('problem'), name='gin_trgm_ops'),
-				name='workorders_problem_gin_idx'
-			),
 			models.Index(fields=['equipment'], name='workorders_equip_idx'),
 			models.Index(fields=['part'], name='workorders_part_idx'),
 			models.Index(fields=['type_of_work'], name='workorders_work_type_idx'),
@@ -131,3 +127,17 @@ class WorkOrderHistory(models.Model):
 
     class Meta:
         ordering = ['-timestamp']
+
+
+class UserPrompt(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    prompt = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+    response = models.TextField(null=True, blank=True)
+    metadata = models.JSONField(default=dict)  # For storing additional context
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Prompt by {self.user.username if self.user else 'Anonymous'} at {self.created_at}"

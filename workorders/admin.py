@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import workorders, Equipment, Part, Location, Machine_Type, Part_Type, Type_of_Work, Work_Status, Pending, Closed
+from .models import workorders, Equipment, Part, Location, Machine_Type, Part_Type, Type_of_Work, Work_Status, Pending, Closed, UserPrompt
 
 admin.site.register(workorders)
 admin.site.register(Equipment)
@@ -11,3 +11,4 @@ admin.site.register(Type_of_Work)
 admin.site.register(Work_Status)
 admin.site.register(Pending)
 admin.site.register(Closed)
+admin.site.register(UserPrompt)
