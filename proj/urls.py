@@ -20,6 +20,7 @@ router.register(r'equipment', workorder_views.EquipmentViewSet)  # Fixed typo: E
 router.register(r'parts', workorder_views.PartViewSet)
 router.register(r'user-prompts', workorder_views.UserPromptViewSet, basename='userprompt')
 router.register(r'workorders', workorder_views.WorkOrderViewSet, basename='workorder')  # Added basename
+router.register(r'analytics', workorder_views.AnalyticsViewSet, basename='analytics') 
 router.register(
     r'workorders/(?P<workorder_pk>\d+)/history', 
     workorder_views.WorkOrderHistoryViewSet, 

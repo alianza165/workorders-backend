@@ -76,6 +76,12 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             )
         return queryset
 
+class AnalyticsViewSet(viewsets.ModelViewSet):
+    queryset = workorders.objects.all()
+    serializer_class = WorkOrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = EquipmentPagination
+
 class PartViewSet(viewsets.ModelViewSet):
     queryset = Part.objects.all()
     serializer_class = PartSerializer
