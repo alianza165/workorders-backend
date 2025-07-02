@@ -34,6 +34,9 @@ router.register(r'profiles', account_views.ProfileViewSet)
 router.register(r'register', account_views.UserRegistrationViewSet, basename='register')
 
 urlpatterns = [
+    path('backend/api/analytics/status-trend/', workorder_views.StatusTrendView.as_view()),
+    path('backend/api/analytics/equipment-types/', workorder_views.EquipmentTypeAnalyticsView.as_view()),
+    path('backend/api/analytics/locations/', workorder_views.LocationAnalyticsView.as_view()),
     path('backend/ai-agent/', workorder_views.AIAgentView.as_view(), name='ai-agent'),
     path('backend/admin/', admin.site.urls),
     path('backend/api/', include(router.urls)),
