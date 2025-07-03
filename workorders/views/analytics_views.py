@@ -5,6 +5,7 @@ from ..models import workorders
 from django.db.models import Q, Count, F, Avg
 from collections import defaultdict
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 from datetime import datetime, timedelta
 
 class LocationAnalyticsView(APIView):
@@ -150,4 +151,74 @@ class StatusTrendView(APIView):
             'group_by': group_by,
             'dates': dates,
             'results': results
+        })
+
+
+class EquipmentFaultAnalysisView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        # Use Django's timezone-aware now()
+        recent_threshold = timezone.now() - timedelta(days=90)
+        predictive_threshold = timezone.now() - timedelta(days=365)
+        
+        # Current fault analysis (unchanged)
+        fault_analysis = (
+            workorders.objects
+            .filter(initiation_date__gte=recent_threshold)
+            .values('equipment__machine', 'equipment__machine_type__machine_type', 'problem')
+            .annotate(
+                fault_count=Count('id'),
+                avg_repair_hours=Avg(F('completion_date') - F('initiation_date'))
+                )
+            .order_by('-fault_count')[:10]
+        )
+        
+        # Predictive analysis with timezone fixes
+        equipment_intervals = defaultdict(list)
+        predictive_candidates = []
+        
+        historical_data = (
+            workorders.objects
+            .filter(initiation_date__gte=predictive_threshold)
+            .values('equipment_id', 'equipment__machine', 'initiation_date')
+            .order_by('equipment_id', 'initiation_date')
+        )
+        
+        for wo in historical_data:
+            # Ensure we're working with timezone-aware datetimes
+            aware_date = timezone.make_aware(
+                wo['initiation_date'],
+                timezone.get_current_timezone()
+            ) if timezone.is_naive(wo['initiation_date']) else wo['initiation_date']
+            equipment_intervals[wo['equipment_id']].append(aware_date)
+        
+        for equip_id, dates in equipment_intervals.items():
+            if len(dates) > 1:
+                intervals = [(dates[i+1] - dates[i]).days for i in range(len(dates)-1)]
+                avg_interval = sum(intervals) / len(intervals)
+                last_failure = dates[-1]
+                next_predicted = last_failure + timedelta(days=avg_interval)
+                
+                # Compare timezone-aware datetimes
+                if timezone.now() > next_predicted - timedelta(days=7):
+                    days_overdue = (timezone.now() - next_predicted).days
+                    predictive_candidates.append({
+                        'equipment_id': equip_id,
+                        'equipment_name': historical_data.filter(equipment_id=equip_id)[0]['equipment__machine'],
+                        'last_failure': last_failure,
+                        'avg_interval_days': round(avg_interval),
+                        'days_overdue': days_overdue
+                    })
+        
+        # Convert datetimes to strings for JSON serialization
+        serialized_candidates = []
+        for candidate in predictive_candidates:
+            serialized = candidate.copy()
+            serialized['last_failure'] = candidate['last_failure'].isoformat()
+            serialized_candidates.append(serialized)
+        
+        return Response({
+            'fault_analysis': fault_analysis,
+            'predictive_candidates': sorted(serialized_candidates, key=lambda x: x['days_overdue'], reverse=True)[:5]
         })

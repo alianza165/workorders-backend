@@ -34,6 +34,7 @@ router.register(r'profiles', account_views.ProfileViewSet)
 router.register(r'register', account_views.UserRegistrationViewSet, basename='register')
 
 urlpatterns = [
+    path('backend/api/analytics/equipment-faults/', workorder_views.EquipmentFaultAnalysisView.as_view()),
     path('backend/api/analytics/status-trend/', workorder_views.StatusTrendView.as_view()),
     path('backend/api/analytics/equipment-types/', workorder_views.EquipmentTypeAnalyticsView.as_view()),
     path('backend/api/analytics/locations/', workorder_views.LocationAnalyticsView.as_view()),
